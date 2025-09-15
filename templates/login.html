@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>登录</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="card">
+    <h2>登录</h2>
+    <form action="/login" method="post">
+      {{ .CSRF }}
+      <label>用户名<br><input name="username" required></label><br>
+      <label>密码<br><input type="password" name="password" required></label><br>
+      <button type="submit">登录</button>
+    </form>
+    <p>示例用户: <strong>alice</strong> / 密码: <strong>test123</strong></p>
+  </div>
+</body>
+</html>
