@@ -41,7 +41,7 @@ type User struct {
 // 登录请求
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Password string `json:"password" binding:"required"` // binding:"required" 确保字段不能为空
 }
 
 // 注册请求
@@ -52,11 +52,11 @@ type RegisterRequest struct {
 
 // 登录响应
 type LoginResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int    `json:"code"`    // 状态码，如200等
+	Message string `json:"message"` //如success等
 	Data    struct {
-		Token string `json:"token"`
-		User  *User  `json:"user"`
+		Token string `json:"token"` // JWT令牌
+		User  *User  `json:"user"`  // 用户信息
 	} `json:"data"`
 }
 
@@ -105,9 +105,12 @@ func initDB() error {
 	config := getDBConfig()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.User, config.Password, config.Host, config.Port, config.Name)
+	//目的：构建一个 DSN（Data Source Name） 字符串，这是 Go 的 database/sql 驱动用于连接数据库的标准连接字符串。
 
+	//创建与数据库链接的连接池
 	var err error
 	db, err = sql.Open("mysql", dsn)
+
 	if err != nil {
 		return fmt.Errorf("数据库连接失败: %v", err)
 	}
@@ -115,10 +118,13 @@ func initDB() error {
 	if err = db.Ping(); err != nil {
 		return fmt.Errorf("数据库ping失败: %v", err)
 	}
+	//目的：真正地检查数据库网络连接是否可用。
+	//详解：
+	//db.Ping()：这个方法会从连接池中获取一个连接（或新建一个），并执行一条简单的查询（如 MySQL 的 SELECT 1）来验证与数据库的通信是否正常。
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(25)                 //设置连接池中最大打开的连接数。
+	db.SetMaxIdleConns(25)                 //设置连接池中最大空闲连接数
+	db.SetConnMaxLifetime(5 * time.Minute) //目的：设置连接的最大存活时间。详解：即使连接是空闲的，超过这个时间后它也会被关闭并重新建立。
 
 	log.Println("✅ 数据库连接成功")
 	return nil
@@ -147,11 +153,11 @@ func generateJWT(username string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": username,
-		"iat": jwt.NewNumericDate(time.Now()),
-		"exp": jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+		"iat": jwt.NewNumericDate(time.Now()),                     //签发时间
+		"exp": jwt.NewNumericDate(time.Now().Add(time.Hour * 24)), //过期时间
 	})
 
-	return token.SignedString(secret)
+	return token.SignedString(secret) //使用密钥对Token进行签名
 }
 
 // 获取 JWT 密钥
@@ -176,9 +182,10 @@ func authMiddleware() gin.HandlerFunc {
 				Code:    401,
 				Message: "请求头中未提供 Authorization 令牌",
 			})
-			c.Abort()
+			c.Abort() //至关重要。它阻止这个请求链中后续的所有处理程序（包括最终的路由处理函数）被执行。
 			return
 		}
+
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			c.JSON(http.StatusUnauthorized, ErrorResponse{
 				Code:    401,
